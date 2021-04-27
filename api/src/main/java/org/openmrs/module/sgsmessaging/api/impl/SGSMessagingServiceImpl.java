@@ -16,6 +16,7 @@ package org.openmrs.module.sgsmessaging.api.impl;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.logging.Log;
@@ -23,13 +24,22 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.http.auth.AuthenticationException;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.joda.time.DateTime;
+import org.joda.time.Days;
+import org.openmrs.Patient;
 import org.openmrs.Person;
 import org.openmrs.api.APIException;
+import org.openmrs.api.context.Context;
 import org.openmrs.api.impl.BaseOpenmrsService;
+import org.openmrs.module.sgsmessaging.SGSMessagingConfig;
 import org.openmrs.module.sgsmessaging.api.SGSMessagingService;
 import org.openmrs.module.sgsmessaging.api.db.SGSMessagingDAO;
 import org.openmrs.module.sgsmessaging.domain.SGSMessagingMessage;
 import org.openmrs.module.sgsmessaging.util.SGSMessagingUtil;
+import org.openmrs.module.appointments.model.Appointment;
+import org.openmrs.module.appointments.model.AppointmentServiceDefinition;
+import org.openmrs.module.appointments.service.AppointmentServiceDefinitionService;
+import org.openmrs.module.appointments.service.AppointmentsService;
 
 /**
  * It is a default implementation of {@link SGSMessagingService}.
@@ -94,6 +104,45 @@ public class SGSMessagingServiceImpl extends BaseOpenmrsService implements SGSMe
 			patientName = person.getFamilyName() + " " + person.getMiddleName() + " " + person.getGivenName();
 		}
 		return patientName;
+	}
+	
+	/**
+	 * Gets a list of MessagingConfig objects from calling {@link #getMessagingConfig()}. Each
+	 * configuration object from that list is used to read the service configured, the number of days
+	 * before the appointment day and the actual message to send. We then call {@link #postMessage()} of
+	 * MessagingUtil to send the actual message
+	 */
+	
+	@Override
+	public void sendAppointmentReminders() throws AuthenticationException, ClientProtocolException, IOException {
+		DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+		
+		try {
+			List<SGSMessagingConfig> configs = SGSMessagingUtil.getMessagingConfig();
+			for (SGSMessagingConfig messagingConfig : configs) {
+				AppointmentServiceDefinition service = Context.getService(AppointmentServiceDefinitionService.class).getAppointmentServiceByUuid(messagingConfig.getServiceUUID());
+				List<Appointment> appointments = Context.getService(AppointmentsService.class).getAllFutureAppointmentsForService(service);
+				String phone = null;
+				for (Appointment appointment : appointments) {
+					if (Days.daysBetween(new DateTime(new Date()), new DateTime(appointment.getStartDateTime())).getDays() == messagingConfig.getDaysBefore() - 1) {
+						phone = appointment.getPatient().getAttribute(Context.getAdministrationService().getGlobalProperty("sgsmessaging.phoneAttribute")).getValue();
+						if (phone != null && phone.length() > 0) {
+							Patient p = appointment.getPatient();
+							String patientName = getPersonName(p);
+							Date appointmentDate = appointment.getStartDateTime();
+							String messageAfterNameReplace = messagingConfig.getMessageText().replace("patientName", patientName);
+							String messageAfterAppointmentDateReplace = messageAfterNameReplace.replace("appointmentDate", dateFormat.format(appointmentDate));
+							SGSMessagingUtil.postMessage(phone, messageAfterAppointmentDateReplace);
+						}
+					}
+				}
+				
+			}
+		}
+		catch (Exception e) {
+			log.error("There was an error sending appointment reminders" + e);
+		}
+		
 	}
 	
 	@Override

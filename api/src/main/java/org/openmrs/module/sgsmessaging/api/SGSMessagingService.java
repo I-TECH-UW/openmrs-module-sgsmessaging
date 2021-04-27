@@ -88,4 +88,6 @@ public interface SGSMessagingService extends OpenmrsService {
 	
 	void sendLabResultsNotifications() throws AuthenticationException, ClientProtocolException, IOException;
 	
+	void sendAppointmentReminders() throws AuthenticationException, ClientProtocolException, IOException;
+	
 }

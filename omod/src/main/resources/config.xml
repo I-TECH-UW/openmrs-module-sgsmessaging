@@ -14,6 +14,9 @@
 	<!-- <updateURL>https://modules.openmrs.org/modules/download/${project.parent.artifactId}/update.rdf</updateURL> -->
 	<require_version>${openmrsPlatformVersion}</require_version>
 	<!-- / Module Properties -->
+	<require_modules>
+		<require_module version="1.2-SNAPSHOT">org.openmrs.module.appointments</require_module>
+	</require_modules>
 
 	<!-- Module Activator -->
 	<activator>org.openmrs.module.sgsmessaging.SGSMessagingModuleActivator	</activator>
