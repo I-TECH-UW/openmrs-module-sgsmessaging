@@ -28,6 +28,7 @@ import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.openmrs.Patient;
 import org.openmrs.Person;
+import org.openmrs.PersonAttribute;
 import org.openmrs.api.APIException;
 import org.openmrs.api.context.Context;
 import org.openmrs.api.impl.BaseOpenmrsService;
@@ -116,22 +117,26 @@ public class SGSMessagingServiceImpl extends BaseOpenmrsService implements SGSMe
 	@Override
 	public void sendAppointmentReminders() throws AuthenticationException, ClientProtocolException, IOException {
 		DateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
-		
+		String phoneAttributeName = Context.getAdministrationService().getGlobalProperty("sgsmessaging.phoneAttribute");
 		try {
 			List<SGSMessagingConfig> configs = SGSMessagingUtil.getMessagingConfig();
 			for (SGSMessagingConfig messagingConfig : configs) {
 				AppointmentServiceDefinition service = Context.getService(AppointmentServiceDefinitionService.class).getAppointmentServiceByUuid(messagingConfig.getServiceUUID());
 				List<Appointment> appointments = Context.getService(AppointmentsService.class).getAllFutureAppointmentsForService(service);
 				String phone = null;
+				PersonAttribute phoneAttribute = null;
 				for (Appointment appointment : appointments) {
 					if (Days.daysBetween(new DateTime(new Date()), new DateTime(appointment.getStartDateTime())).getDays() == messagingConfig.getDaysBefore() - 1) {
-						phone = appointment.getPatient().getAttribute(Context.getAdministrationService().getGlobalProperty("sgsmessaging.phoneAttribute")).getValue();
+						phoneAttribute = Context.getPersonService().getPerson(appointment.getPatient().getPatientId()).getAttribute(phoneAttributeName);
+						if (phoneAttribute != null) {
+							phone = phoneAttribute.getValue();
+						}
 						if (phone != null && phone.length() > 0) {
 							Patient p = appointment.getPatient();
 							String patientName = getPersonName(p);
 							Date appointmentDate = appointment.getStartDateTime();
 							String messageAfterNameReplace = messagingConfig.getMessageText().replace("patientName", patientName);
-							String messageAfterAppointmentDateReplace = messageAfterNameReplace.replace("appointmentDate", dateFormat.format(appointmentDate));
+							String messageAfterAppointmentDateReplace = messageAfterNameReplace.replace("appointmentDate", dateFormat.format(appointmentDate));						
 							SGSMessagingUtil.postMessage(phone, messageAfterAppointmentDateReplace);
 						}
 					}

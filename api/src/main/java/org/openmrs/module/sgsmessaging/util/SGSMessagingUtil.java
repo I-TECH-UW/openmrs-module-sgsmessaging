@@ -10,6 +10,7 @@
 package org.openmrs.module.sgsmessaging.util;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 import java.util.List;
@@ -25,6 +26,7 @@ import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
+import org.openmrs.api.APIException;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.sgsmessaging.SGSMessagingConfig;
 import org.slf4j.Logger;
@@ -101,19 +103,40 @@ public class SGSMessagingUtil {
 	 * @throws AuthenticationException
 	 */
 	public static CloseableHttpResponse postMessage(String phone, String messageText) throws ClientProtocolException, IOException, AuthenticationException {
-		String countryCode = Context.getAdministrationService().getGlobalProperty("sgsmessaging.countryCode");
-		
-		String fixedPhoneNumber = phone.replaceFirst("0", countryCode);
-		String json = "{ \"urns\": [ \"tel:" + fixedPhoneNumber + "\"], \"text\": \"" + new String(messageText.getBytes("UTF-8"), "ISO-8859-1") + "\" }";
-		HttpPost httpPost = new HttpPost(Context.getAdministrationService().getGlobalProperty("sgsmessaging.postURL"));
-		httpPost.setEntity(new StringEntity(json));
-		httpPost.setHeader("Accept", "application/json");
-		httpPost.setHeader("Content-type", "application/json");
-		httpPost.setHeader("Authorization", Context.getAdministrationService().getGlobalProperty("sgsmessaging.Authorization"));
-		
-		CloseableHttpClient client = HttpClients.createDefault();
-		CloseableHttpResponse response = client.execute(httpPost);
-		client.close();
-		return response;
+		/*
+		 * Don't use country code for now. String countryCode =
+		 * Context.getAdministrationService().getGlobalProperty(
+		 * "sgsmessaging.countryCode"); String fixedPhoneNumber =
+		 * phone.replaceFirst("0", countryCode);
+		 */		
+		try {
+			String json = "{ \"urns\": [ \"tel:" + phone + "\"], \"text\": \"" + new String(messageText.getBytes("UTF-8"), "ISO-8859-1") + "\" }";
+			HttpPost httpPost = new HttpPost(Context.getAdministrationService().getGlobalProperty("sgsmessaging.postURL"));
+			httpPost.setEntity(new StringEntity(json));
+			httpPost.setHeader("Accept", "application/json");
+			httpPost.setHeader("Content-type", "application/json");
+			httpPost.setHeader("Authorization", Context.getAdministrationService().getGlobalProperty("sgsmessaging.Authorization"));
+			CloseableHttpClient client = HttpClients.createDefault();
+			CloseableHttpResponse response = client.execute(httpPost);
+			client.close();
+			return response;
+		}
+		catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		catch (APIException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		catch (ClientProtocolException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
 	}
 }
