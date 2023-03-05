@@ -17,7 +17,9 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -32,20 +34,23 @@ import org.openmrs.PersonAttribute;
 import org.openmrs.api.APIException;
 import org.openmrs.api.context.Context;
 import org.openmrs.api.impl.BaseOpenmrsService;
-import org.openmrs.module.sgsmessaging.SGSMessagingConfig;
-import org.openmrs.module.sgsmessaging.api.SGSMessagingService;
-import org.openmrs.module.sgsmessaging.api.db.SGSMessagingDAO;
-import org.openmrs.module.sgsmessaging.domain.SGSMessagingMessage;
-import org.openmrs.module.sgsmessaging.util.SGSMessagingUtil;
 import org.openmrs.module.appointments.model.Appointment;
 import org.openmrs.module.appointments.model.AppointmentServiceDefinition;
 import org.openmrs.module.appointments.service.AppointmentServiceDefinitionService;
 import org.openmrs.module.appointments.service.AppointmentsService;
+import org.openmrs.module.sgsmessaging.SGSMessagingConfig;
+import org.openmrs.module.sgsmessaging.api.SGSMessagingService;
+import org.openmrs.module.sgsmessaging.api.db.SGSMessagingDAO;
+import org.openmrs.module.sgsmessaging.domain.SGSMessagingMessage;
+import org.openmrs.module.sgsmessaging.util.ClickSendUtil;
+import org.openmrs.module.sgsmessaging.util.SGSMessagingUtil;
 
 /**
  * It is a default implementation of {@link SGSMessagingService}.
  */
 public class SGSMessagingServiceImpl extends BaseOpenmrsService implements SGSMessagingService {
+	
+	private Set<String> notifiedAppointments = new HashSet<>();
 	
 	protected final Log log = LogFactory.getLog(this.getClass());
 	
@@ -126,6 +131,10 @@ public class SGSMessagingServiceImpl extends BaseOpenmrsService implements SGSMe
 				String phone = null;
 				PersonAttribute phoneAttribute = null;
 				for (Appointment appointment : appointments) {
+					if (notifiedAppointments.contains(appointment.getUuid())) {
+						// Appointment has already been notified, so do not send a notification
+						continue;
+					}
 					if (Days.daysBetween(new DateTime(new Date()), new DateTime(appointment.getStartDateTime())).getDays() == messagingConfig.getDaysBefore() - 1) {
 						phoneAttribute = Context.getPersonService().getPerson(appointment.getPatient().getPatientId()).getAttribute(phoneAttributeName);
 						if (phoneAttribute != null) {
@@ -136,8 +145,12 @@ public class SGSMessagingServiceImpl extends BaseOpenmrsService implements SGSMe
 							String patientName = getPersonName(p);
 							Date appointmentDate = appointment.getStartDateTime();
 							String messageAfterNameReplace = messagingConfig.getMessageText().replace("patientName", patientName);
-							String messageAfterAppointmentDateReplace = messageAfterNameReplace.replace("appointmentDate", dateFormat.format(appointmentDate));						
-							SGSMessagingUtil.postMessage(phone, messageAfterAppointmentDateReplace);
+							String messageAfterAppointmentDateReplace = messageAfterNameReplace.replace("appointmentDate", dateFormat.format(appointmentDate));
+							String messageAfterUuidReplace = messageAfterAppointmentDateReplace.replace("patientUuid", p.getUuid());
+							//SGSMessagingUtil.postMessage(phone, messageAfterUuidReplace);
+							ClickSendUtil.postMessage(phone, messageAfterUuidReplace);
+							// Add the UUID of the appointment to the Set of notified appointments
+							notifiedAppointments.add(appointment.getUuid());
 						}
 					}
 				}

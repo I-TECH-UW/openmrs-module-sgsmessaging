@@ -2,8 +2,6 @@ package org.openmrs.module.sgsmessaging.domain;
 
 import java.util.Date;
 
-import javax.xml.soap.MessageFactory;
-
 import org.openmrs.BaseOpenmrsObject;
 import org.openmrs.Person;
 

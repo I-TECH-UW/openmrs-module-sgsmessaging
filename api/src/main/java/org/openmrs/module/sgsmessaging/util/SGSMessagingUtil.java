@@ -108,7 +108,7 @@ public class SGSMessagingUtil {
 		 * Context.getAdministrationService().getGlobalProperty(
 		 * "sgsmessaging.countryCode"); String fixedPhoneNumber =
 		 * phone.replaceFirst("0", countryCode);
-		 */		
+		 */
 		try {
 			String json = "{ \"urns\": [ \"tel:" + phone + "\"], \"text\": \"" + new String(messageText.getBytes("UTF-8"), "ISO-8859-1") + "\" }";
 			HttpPost httpPost = new HttpPost(Context.getAdministrationService().getGlobalProperty("sgsmessaging.postURL"));
